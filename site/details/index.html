@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="shortcut icon" href="../img/favicon.ico">
+  <title>Project Details - people-poc</title>
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css">
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "Project Details";
+    var mkdocs_page_input_path = "details.md";
+    var mkdocs_page_url = null;
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js" defer></script>
+  <script src="../js/modernizr-2.8.3.min.js" defer></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> people-poc</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+	<ul class="current">
+	  
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="..">Home</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../about/">About</a>
+	    </li>
+          
+            <li class="toctree-l1 current">
+		
+    <a class="current" href="./">Project Details</a>
+    <ul class="subnav">
+            
+    <li class="toctree-l2"><a href="#project-details">Project Details</a></li>
+    
+        <ul>
+        
+            <li><a class="toctree-l3" href="#repository-layout">Repository layout</a></li>
+        
+            <li><a class="toctree-l3" href="#docker-image">Docker Image</a></li>
+        
+            <li><a class="toctree-l3" href="#ecr">ECR</a></li>
+        
+            <li><a class="toctree-l3" href="#codebuild">CodeBuild</a></li>
+        
+            <li><a class="toctree-l3" href="#ecs">ECS</a></li>
+        
+            <li><a class="toctree-l3" href="#codepipeline">CodePipeline</a></li>
+        
+        </ul>
+    
+
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../child1/">Community Site</a>
+	    </li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">people-poc</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+    
+    <li>Project Details</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="project-details">Project Details</h1>
+<p>So why did you create this site?  Was there a purpose?</p>
+<p><strong>Example problem:</strong>   We have a main site <a href="http://people-poc.aws.mattsnell.com">people-poc.aws.mattsnell.com</a> that is centrally managed.  We want to enable approved contributors to publish community content within our namespace (example: <a href="#">http://people-poc.aws.mattsnell.com/coffeefans</a>).  Contributors should be able to create their content and have it published automatically, and we don't want to create significant technical debt in the process!  One other requisite, we need apache to serve these sites, our community values the controls that are enabled by htaccess.</p>
+<p>A potential solution is outlined below, it has the benefits of being completely serverless, it enables the contributors to take advantage of well known revision control tools and only configuration/setup once to get the ball rolling.</p>
+<p><strong>Assumptions:</strong>
+<em> Routing to the sites is a solved problem, what I've done to make this work is configure an Application Load Balancer (ALB) with path based routing.  There are rules that forward requests to the appropriate Target Groups and these groups have the appropriate containers as members.
+</em> There is existing ECS infrastructure that can be used to host the containers created below
+<em> The main site and the associated paths owned by it are out of scope (that content is managed outside of this process)
+</em> There aren't a lot of these sites so the ramp up and maintenance is measurable and minimal</p>
+<p><strong>A 10,000 foot view of the pipeline:</strong>
+1.  A contributor updates their site locally and commits those changes to github
+1. An AWS CodePipeline job is triggered via webhook; it uses AWS CodeBuild and creates a docker container and pushes it to AWS Elastic Container Registry (ECR)
+1. An AWS Elastic Container Service (ECS) service is updated using the updated image triggering a replacment of the running containers</p>
+<p><img alt="Diagram" src="../people-poc.png" /></p>
+<h2 id="repository-layout">Repository layout</h2>
+<h2 id="docker-image">Docker Image</h2>
+<p>There are a number of ways to tackle this particular problem.  In this case I designed my image from an older CentOS base:</p>
+<pre><code>FROM centos:6.10
+
+RUN yum update --assumeyes \
+    &amp;&amp; yum install httpd --assumeyes \
+    &amp;&amp; yum clean all --quiet --assumeyes \
+    &amp;&amp; rm -rf /var/cache/yum
+
+COPY --chown=root:root conf/httpd.conf /etc/httpd/conf/
+COPY --chown=root:root users/htpasswd /opt/.htpasswd
+COPY --chown=root:root site/ /var/www/html/
+
+EXPOSE 80
+
+ENTRYPOINT [&quot;/usr/sbin/httpd&quot;, &quot;-e&quot;, &quot;DEBUG&quot;, &quot;-D&quot;, &quot;FOREGROUND&quot;]```
+</code></pre>
+
+<p>NEED TO MOVE httpd.conf to the S3 bucket and update buildspec.yml - shouldn't be exposed to user</p>
+<h2 id="ecr">ECR</h2>
+<p>Create your ECR repository and make note of the name</p>
+<h2 id="codebuild">CodeBuild</h2>
+<p>Create Build Project</p>
+<p>There are a number of variables that I used when defining the project to make it reusable.</p>
+<ul>
+<li>$CONTAINER_NAME</li>
+<li>$AWS_DEFAULT_REGION</li>
+<li>$IMAGE_REPO_NAME</li>
+<li>$IMAGE_TAG</li>
+<li>$AWS_ACCOUNT_ID</li>
+</ul>
+<p><strong>Example buildspec.yml</strong></p>
+<pre><code>version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - $(aws ecr get-login --no-include-email --region $AWS_DEFAULT_REGION)
+  build:
+    commands:
+      - echo Downloading Dockerfile
+      - aws s3 cp s3://aws-mds-data/bu/dev/people-poc-child1/Dockerfile .
+      - echo Build started on `date`
+      - echo Building the Docker image...          
+      - docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG .
+      - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG      
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker image...
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
+      - echo Creating imagedefinitions.json...
+      - printf '[{&quot;name&quot;:&quot;%s&quot;,&quot;imageUri&quot;:&quot;%s&quot;}]' $CONTAINER_NAME $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG &gt; imagedefinitions.json
+      - cat imagedefinitions.json
+artifacts:
+  files:
+    - imagedefinitions.json
+</code></pre>
+
+<h2 id="ecs">ECS</h2>
+<p>Create a new service</p>
+<h2 id="codepipeline">CodePipeline</h2>
+<p>Tie it all together!</p>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../child1/" class="btn btn-neutral float-right" title="Community Site">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href="../about/" class="btn btn-neutral" title="About"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+      
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../about/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../child1/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script>var base_url = '..';</script>
+    <script src="../js/theme.js" defer></script>
+      <script src="../search/main.js" defer></script>
+
+</body>
+</html>
