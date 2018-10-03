@@ -171,7 +171,7 @@
 <li>The only path that has htaccess control applied is <code>site/child1/protected/</code>.  You can review the .htaccess file there.</li>
 </ul>
 <h2 id="dockerfile">Dockerfile</h2>
-<p>There are a number of ways to tackle this particular problem.  In this example, I've designed my image from an older CentOS base:</p>
+<p>There are a number of ways to tackle this particular problem.  In this example, I've built my image from an older CentOS base:</p>
 <pre><code class="Dockerfile">FROM centos:6.10
 
 RUN yum update --assumeyes \
@@ -189,9 +189,9 @@ ENTRYPOINT [&quot;/usr/sbin/httpd&quot;, &quot;-e&quot;, &quot;DEBUG&quot;, &quo
 </code></pre>
 
 <h2 id="ecr">ECR</h2>
-<p>At this point, create the ECR registry and note the name, perhaps something like <code>web/child1</code>.  That value will be needed in the CodeBuild section coming up.</p>
+<p>Create the ECR registry and note the name, perhaps something like <code>web/child1</code>.  That value will be needed in the CodeBuild section coming up.</p>
 <h2 id="codebuild">CodeBuild</h2>
-<p>Create a <a href="https://docs.aws.amazon.com/codebuild/latest/userguide/create-project.html">Build Project</a>; there are a number of questions to answer and they are grouped by action, some of my responses are below.</p>
+<p>Create a <a href="https://docs.aws.amazon.com/codebuild/latest/userguide/create-project.html">Build Project</a>; there are a number of questions to answer and they are grouped, some of my responses are below.</p>
 <table>
 <thead>
 <tr>
@@ -237,7 +237,7 @@ ENTRYPOINT [&quot;/usr/sbin/httpd&quot;, &quot;-e&quot;, &quot;DEBUG&quot;, &quo
 <p><strong>Notes:</strong></p>
 <ul>
 <li>Don't opt to "Rebuild every time a code change is pushed to this repository" (CodePipeline will manage that task)</li>
-<li>I opted to insert the <a href="https://docs.aws.amazon.com/codebuild/latest/userguide/build-spec-ref.html">buildspec.yml</a> code in the build project so that it doesn't need to be maintained in the contributor's repository</li>
+<li>I opted to insert the <a href="https://docs.aws.amazon.com/codebuild/latest/userguide/build-spec-ref.html">buildspec.yml</a> code into the build project so that it doesn't need to be maintained in the contributor's repository</li>
 <li>The service role will need additional permissions (more below)</li>
 </ul>
 <p><strong>Environment Variables:</strong> There are a number of variables that I configured when defining the project to make the buildspec.yml code reuseable:</p>
@@ -271,7 +271,7 @@ ENTRYPOINT [&quot;/usr/sbin/httpd&quot;, &quot;-e&quot;, &quot;DEBUG&quot;, &quo
 </tr>
 </tbody>
 </table>
-<p><strong>Example buildspec.yml:</strong>  This is the spec file that I used to build the container.  It illustrates the use of the variables I specified above.</p>
+<p><strong>Example buildspec.yml:</strong>  This is the spec file that I used for the build.  It illustrates the use of the variables I specified above.</p>
 <pre><code class="yaml">version: 0.2
 
 phases:
@@ -370,9 +370,9 @@ artifacts:
 }
 </code></pre>
 
-<p>At this point, test the build.  Once complete, the ECR image will be available for use in the next step</p>
+<p>At this point, test the build.  Once successful, the ECR image will be available for use in the next step.</p>
 <h2 id="ecs">ECS</h2>
-<p>Create a new task definition and service.  Again, this assumes there is an ECS cluster with resources available to host the containers.</p>
+<p>Create a new ECS task definition and service.  Again, this assumes there is an ECS cluster with resources available to host the containers.</p>
 <p>Task definition:</p>
 <ul>
 <li>Add a new task definition of type <strong>EC2</strong></li>
@@ -443,27 +443,27 @@ artifacts:
 <li>CodePipeline will create or re-use an S3 bucket to store artifacts for this pipeline</li>
 </ul>
 <h2 id="costs">Costs</h2>
-<p>Pricing info may be stale!  This information below is accurate as of 2018/10/03, visit the pricing pages for updates</p>
+<p>Pricing info may be stale!  The information below is accurate as of 2018/10/03, visit the pricing pages for updates.</p>
 <h3 id="codebuild_1">CodeBuild</h3>
 <p>See <a href="https://aws.amazon.com/codebuild/pricing/">CodeBuild pricing</a></p>
 <ul>
-<li>Building this project takes roughly 1 minute on a build.general1.small at $0.005 per build minute</li>
-<li>The AWS CodeBuild free tier includes 100 build minutes of build.general1.small per month. The CodeBuild free tier does not expire automatically at the end of your 12-month AWS Free Tier term. It is available to new and existing AWS customers.</li>
+<li>Building this project takes roughly 1 minute on a <em>build.general1.small</em> at $0.005 per build minute</li>
+<li>The AWS CodeBuild free tier includes 100 build minutes of <em>build.general1.small</em> per month. The CodeBuild free tier does not expire automatically at the end of your 12-month AWS Free Tier term. It is available to new and existing AWS customers.</li>
 </ul>
 <h3 id="codepipeline_1">CodePipeline</h3>
 <p>See <a href="https://aws.amazon.com/codepipeline/pricing/">CodePipeline pricing</a></p>
 <ul>
-<li>With AWS CodePipeline, there are no upfront fees or commitments. You pay only for what you use. AWS CodePipeline costs $1 per active pipeline* per month. To encourage experimentation, pipelines are free for the first 30 days after creation.</li>
-<li>An active pipeline is a pipeline that has existed for more than 30 days and has at least one code change that runs through it during the month. There is no charge for pipelines that have no new code changes running through them during the month. An active pipeline is not prorated for partial months.</li>
+<li>AWS CodePipeline costs $1 per <em>active</em> pipeline* per month. To encourage experimentation, pipelines are free for the first 30 days after creation.</li>
+<li>An <em>active</em> pipeline is a pipeline that has existed for more than 30 days and has at least one code change that runs through it during the month. There is no charge for pipelines that have no new code changes running through them during the month. An active pipeline is not prorated for partial months.</li>
 </ul>
 <h3 id="ecs-pricing">ECS Pricing</h3>
 <p>See <a href="https://aws.amazon.com/ecs/pricing/">ECS pricing</a></p>
-<p>There is no additional charge for EC2 launch type. You pay for AWS resources (e.g. EC2 instances or EBS volumes) you create to store and run your application.</p>
+<p>There is no additional charge for the EC2 launch type. You pay for AWS resources (e.g. EC2 instances or EBS volumes) you create to store and run your application.</p>
 <h3 id="ecr-pricing">ECR Pricing</h3>
 <p>See <a href="https://aws.amazon.com/ecr/pricing/">ECR pricing</a></p>
 <ul>
 <li>Storage is $0.10 per GB-month, the image for this project was about 100MB</li>
-<li>Data Transfer Out (in is $0) - Up to 1 GB / Month is $0.00 per GB, Next 9.999 TB / Month is $0.09 per GB</li>
+<li>Data Transfer Out, up to 1 GB / Month is $0.00 per GB, the next 9.999 TB / Month is $0.09 per GB</li>
 </ul>
 <h3 id="s3-pricing">S3 Pricing</h3>
 <p>See <a href="https://aws.amazon.com/s3/pricing/">S3 pricing</a></p>

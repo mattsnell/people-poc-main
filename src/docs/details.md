@@ -42,7 +42,7 @@ There are two paths to focus on:
 
 ## Dockerfile
 
-There are a number of ways to tackle this particular problem.  In this example, I've designed my image from an older CentOS base:
+There are a number of ways to tackle this particular problem.  In this example, I've built my image from an older CentOS base:
 
 ```Dockerfile
 FROM centos:6.10
@@ -61,13 +61,13 @@ EXPOSE 80
 ENTRYPOINT ["/usr/sbin/httpd", "-e", "DEBUG", "-D", "FOREGROUND"]```
 ```
 
-
 ## ECR
-At this point, create the ECR registry and note the name, perhaps something like `web/child1`.  That value will be needed in the CodeBuild section coming up.
+
+Create the ECR registry and note the name, perhaps something like `web/child1`.  That value will be needed in the CodeBuild section coming up.
 
 ## CodeBuild
 
-Create a [Build Project](https://docs.aws.amazon.com/codebuild/latest/userguide/create-project.html); there are a number of questions to answer and they are grouped by action, some of my responses are below.
+Create a [Build Project](https://docs.aws.amazon.com/codebuild/latest/userguide/create-project.html); there are a number of questions to answer and they are grouped, some of my responses are below.
 
 | Question | Response |
 |----------|----------|
@@ -83,7 +83,7 @@ Create a [Build Project](https://docs.aws.amazon.com/codebuild/latest/userguide/
 **Notes:**
 
 * Don't opt to "Rebuild every time a code change is pushed to this repository" (CodePipeline will manage that task)
-* I opted to insert the [buildspec.yml](https://docs.aws.amazon.com/codebuild/latest/userguide/build-spec-ref.html) code in the build project so that it doesn't need to be maintained in the contributor's repository
+* I opted to insert the [buildspec.yml](https://docs.aws.amazon.com/codebuild/latest/userguide/build-spec-ref.html) code into the build project so that it doesn't need to be maintained in the contributor's repository
 * The service role will need additional permissions (more below)
 
 **Environment Variables:** There are a number of variables that I configured when defining the project to make the buildspec.yml code reuseable:
@@ -96,7 +96,7 @@ Create a [Build Project](https://docs.aws.amazon.com/codebuild/latest/userguide/
 | $IMAGE_TAG | The tage you define for your image                                        |
 | $AWS_ACCOUNT_ID | The account ID where you're deploying (used when setting ECR URI)    |
 
-**Example buildspec.yml:**  This is the spec file that I used to build the container.  It illustrates the use of the variables I specified above.
+**Example buildspec.yml:**  This is the spec file that I used for the build.  It illustrates the use of the variables I specified above.
 
 ```yaml
 version: 0.2
@@ -202,11 +202,11 @@ artifacts:
 }
 ```
 
-At this point, test the build.  Once complete, the ECR image will be available for use in the next step
+At this point, test the build.  Once successful, the ECR image will be available for use in the next step.
 
 ## ECS
 
-Create a new task definition and service.  Again, this assumes there is an ECS cluster with resources available to host the containers.
+Create a new ECS task definition and service.  Again, this assumes there is an ECS cluster with resources available to host the containers.
 
 Task definition:
 
@@ -248,34 +248,34 @@ Notes:
 
 ## Costs
 
-Pricing info may be stale!  This information below is accurate as of 2018/10/03, visit the pricing pages for updates
+Pricing info may be stale!  The information below is accurate as of 2018/10/03, visit the pricing pages for updates.
 
 ### CodeBuild
 
 See [CodeBuild pricing](https://aws.amazon.com/codebuild/pricing/)
 
-* Building this project takes roughly 1 minute on a build.general1.small at $0.005 per build minute
-* The AWS CodeBuild free tier includes 100 build minutes of build.general1.small per month. The CodeBuild free tier does not expire automatically at the end of your 12-month AWS Free Tier term. It is available to new and existing AWS customers.
+* Building this project takes roughly 1 minute on a *build.general1.small* at $0.005 per build minute
+* The AWS CodeBuild free tier includes 100 build minutes of *build.general1.small* per month. The CodeBuild free tier does not expire automatically at the end of your 12-month AWS Free Tier term. It is available to new and existing AWS customers.
 
 ### CodePipeline
 
 See [CodePipeline pricing](https://aws.amazon.com/codepipeline/pricing/)
 
-* With AWS CodePipeline, there are no upfront fees or commitments. You pay only for what you use. AWS CodePipeline costs $1 per active pipeline* per month. To encourage experimentation, pipelines are free for the first 30 days after creation.
-* An active pipeline is a pipeline that has existed for more than 30 days and has at least one code change that runs through it during the month. There is no charge for pipelines that have no new code changes running through them during the month. An active pipeline is not prorated for partial months.
+* AWS CodePipeline costs $1 per *active* pipeline* per month. To encourage experimentation, pipelines are free for the first 30 days after creation.
+* An *active* pipeline is a pipeline that has existed for more than 30 days and has at least one code change that runs through it during the month. There is no charge for pipelines that have no new code changes running through them during the month. An active pipeline is not prorated for partial months.
 
 ### ECS Pricing
 
 See [ECS pricing](https://aws.amazon.com/ecs/pricing/)
 
-There is no additional charge for EC2 launch type. You pay for AWS resources (e.g. EC2 instances or EBS volumes) you create to store and run your application.
+There is no additional charge for the EC2 launch type. You pay for AWS resources (e.g. EC2 instances or EBS volumes) you create to store and run your application.
 
 ### ECR Pricing 
 
 See [ECR pricing](https://aws.amazon.com/ecr/pricing/)
 
 * Storage is $0.10 per GB-month, the image for this project was about 100MB
-* Data Transfer Out (in is $0) - Up to 1 GB / Month	is $0.00 per GB, Next 9.999 TB / Month is $0.09 per GB
+* Data Transfer Out, up to 1 GB / Month is $0.00 per GB, the next 9.999 TB / Month is $0.09 per GB
 
 ### S3 Pricing
 
