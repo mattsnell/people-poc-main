@@ -79,6 +79,8 @@
         
             <li><a class="toctree-l3" href="#codepipeline">CodePipeline</a></li>
         
+            <li><a class="toctree-l3" href="#costs">Costs</a></li>
+        
         </ul>
     
 
@@ -124,21 +126,26 @@
               
                 <h1 id="project-details">Project Details</h1>
 <p>So why did you create this site?  Was there a purpose?</p>
-<p><strong>Example problem:</strong>   We have a main site <a href="http://people-poc.aws.mattsnell.com">people-poc.aws.mattsnell.com</a> that is centrally managed.  We want to enable approved contributors to publish community content within our namespace (example: <a href="#">http://people-poc.aws.mattsnell.com/coffeefans</a>).  Contributors should be able to create their content and have it published automatically, and we don't want to create significant technical debt in the process!  One other requisite, we need apache to serve these sites, our community values the controls that are enabled by htaccess.</p>
-<p>A potential solution is outlined below, it has the benefits of being completely serverless, it enables the contributors to take advantage of well known revision control tools and only configuration/setup once to get the ball rolling.</p>
+<p><strong>Example problem:</strong>   We have a main site <a href="http://people-poc.aws.mattsnell.com">people-poc.aws.mattsnell.com</a> that is centrally managed.  We want to enable approved contributors to publish community content within our namespace (example: <a href="#">http://people-poc.aws.mattsnell.com/coffeefans</a>).  </p>
+<p>Contributors should be able to create their content and have it published automatically, and we don't want to create significant technical debt in the process!  One other requisite, we need apache to serve these sites, our community values the controls that are enabled by htaccess.</p>
+<p>A potential solution is outlined below, it has the benefits of being completely serverless, it enables contributors to take advantage of well known revision control tools and only requires configuration/setup once in an effort to get the ball rolling.</p>
 <p><strong>This is not a walkthrough, there are some assumptions that have been made with regards to existing resources in your account</strong></p>
-<p><strong>Assumptions:</strong>
-<em> Routing to the sites is a solved problem, what I've done to make this work is configure an Application Load Balancer (ALB) with path based routing.  There are rules that forward requests to the appropriate Target Groups and these groups have the appropriate containers as members.
-</em> There is existing ECS infrastructure that can be used to host the containers created below
-<em> The main site and the associated paths owned by it are out of scope (that content is managed outside of this process)
-</em> There aren't a lot of these sites so the ramp up and maintenance is measurable and minimal</p>
-<p><strong>A 10,000 foot view of the pipeline:</strong>
-1.  A contributor updates their site locally and commits those changes to github
-1. An AWS CodePipeline job is triggered via webhook; it uses AWS CodeBuild and creates a docker container and pushes it to AWS Elastic Container Registry (ECR)
-1. An AWS Elastic Container Service (ECS) service is updated using the updated image triggering a replacment of the running containers</p>
+<p><strong>Assumptions:</strong></p>
+<ul>
+<li>Routing to the sites is a solved problem, what I've done in this example is configure an <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html">Application Load Balancer</a> (ALB) with path based routing.  There are rules that forward requests to the appropriate Target Groups and these groups have the appropriate containers as members.</li>
+<li>There is an existing <a href="https://aws.amazon.com/ecs/">Amazon lastic Container Service</a> (ECS) cluster that can be used to host the containers created in the example</li>
+<li>The main site and the associated paths owned by it are out of scope (that content is managed outside of this process)</li>
+<li>There aren't a lot of these sites so the ramp up and maintenance is measurable and minimal</li>
+</ul>
+<p><strong>A 10,000 foot view of the pipeline:</strong></p>
+<ol>
+<li>A contributor updates their site locally and commits those changes to <a href="https://github.com/">github</a></li>
+<li>An <a href="https://aws.amazon.com/codepipeline/">AWS CodePipeline</a> job is triggered via <a href="https://developer.github.com/webhooks/">webhook</a>; it uses <a href="https://aws.amazon.com/codebuild/">AWS CodeBuild</a> and creates a docker image and pushes that image to <a href="https://aws.amazon.com/ecr/">AWS Elastic Container Registry</a> (ECR)</li>
+<li>CodePipeline then updates an ECS <a href="https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs_services.html">service</a> which triggers a replacement of the running containers</li>
+</ol>
 <p><img alt="Diagram" src="../people-poc.png" /></p>
 <h2 id="repository-layout">Repository layout</h2>
-<p>Take a look at <a href="https://github.com/mattsnell/people-poc-child1">https://github.com/mattsnell/people-poc-child1</a>, this is the source for the data within the container.  </p>
+<p>Take a look at <a href="https://github.com/mattsnell/people-poc-child1">https://github.com/mattsnell/people-poc-child1</a>, this is the user content and is the source of the site data within the container.  </p>
 <p>There are two paths to focus on:</p>
 <table>
 <thead>
@@ -159,13 +166,13 @@
 </tbody>
 </table>
 <ul>
-<li>Notice that the path <code>child1</code> is maintained in the container (required for <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#path-conditions">path-based routing</a> in <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html">ALB</a>)</li>
+<li>Notice that the path <code>child1</code> is carried forward to the container (required for <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#path-conditions">path-based routing</a> in <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html">ALB</a>)</li>
 <li>The htpasswd file is outside of the web content (the norm)</li>
-<li>The only path that has any htaccess control applied is <code>site/child1/protected</code></li>
+<li>The only path that has any htaccess control applied is <code>site/child1/protected</code>.  You can review the .htaccess there.</li>
 </ul>
 <h2 id="dockerfile">Dockerfile</h2>
-<p>There are a number of ways to tackle this particular problem.  In this case I designed my image from an older CentOS base:</p>
-<pre><code>FROM centos:6.10
+<p>There are a number of ways to tackle this particular problem.  In this example, I've designed my image from an older CentOS base:</p>
+<pre><code class="Dockerfile">FROM centos:6.10
 
 RUN yum update --assumeyes \
     &amp;&amp; yum install httpd --assumeyes \
@@ -182,9 +189,9 @@ ENTRYPOINT [&quot;/usr/sbin/httpd&quot;, &quot;-e&quot;, &quot;DEBUG&quot;, &quo
 </code></pre>
 
 <h2 id="ecr">ECR</h2>
-<p>At this point, you'll want to create your ECR registry and note the name, perhaps something like <code>web/child1</code>.  That value will be needed in the CodeBuild section.</p>
+<p>At this point, create the ECR registry and note the name, perhaps something like <code>web/child1</code>.  That value will be needed in the CodeBuild section coming up.</p>
 <h2 id="codebuild">CodeBuild</h2>
-<p>Create Build Project; there are a number of questions to answer and they are grouped by action, some of my choices are below (omitting responses that aren't required to make this work).</p>
+<p>Create a <a href="https://docs.aws.amazon.com/codebuild/latest/userguide/create-project.html">Build Project</a>; there are a number of questions to answer and they are grouped by action, some of my responses are below.</p>
 <table>
 <thead>
 <tr>
@@ -195,7 +202,7 @@ ENTRYPOINT [&quot;/usr/sbin/httpd&quot;, &quot;-e&quot;, &quot;DEBUG&quot;, &quo
 <tbody>
 <tr>
 <td>Source: What to build / Source provider</td>
-<td>github (then configure for your repository)</td>
+<td>github</td>
 </tr>
 <tr>
 <td>Environment: How to build / Environment image</td>
@@ -219,21 +226,21 @@ ENTRYPOINT [&quot;/usr/sbin/httpd&quot;, &quot;-e&quot;, &quot;DEBUG&quot;, &quo
 </tr>
 <tr>
 <td>Service role</td>
-<td>Create a service role in your account</td>
+<td>Create a service role</td>
 </tr>
 <tr>
 <td>Advanced Settings</td>
-<td>Configure environment variables (see below)</td>
+<td>Configure environment variables (more below)</td>
 </tr>
 </tbody>
 </table>
-<p>Notes:</p>
+<p><strong>Notes:</strong></p>
 <ul>
-<li>Don't opt to "Rebuild every time a code change is pushed to this repository" (we'll take care of that with CodePipeline)</li>
-<li>I opted to insert the buildspec.yml code in the build project so that it doesn't need to be maintained in the contributor's repository</li>
-<li>The service role will need additional permissions, included below</li>
+<li>Don't opt to "Rebuild every time a code change is pushed to this repository" (CodePipeline will manage that task)</li>
+<li>I opted to insert the <a href="https://docs.aws.amazon.com/codebuild/latest/userguide/build-spec-ref.html">buildspec.yml</a> code in the build project so that it doesn't need to be maintained in the contributor's repository</li>
+<li>The service role will need additional permissions (more below)</li>
 </ul>
-<p>There are a number of variables that I configure when defining the project to make the buildspec.yml code reuseable:</p>
+<p><strong>Environment Variables:</strong> There are a number of variables that I configured when defining the project to make the buildspec.yml code reuseable:</p>
 <table>
 <thead>
 <tr>
@@ -264,8 +271,8 @@ ENTRYPOINT [&quot;/usr/sbin/httpd&quot;, &quot;-e&quot;, &quot;DEBUG&quot;, &quo
 </tr>
 </tbody>
 </table>
-<p><strong>Example buildspec.yml</strong></p>
-<pre><code>version: 0.2
+<p><strong>Example buildspec.yml:</strong>  This is the spec file that I used to build the container.  It illustrates the use of the variables I specified above.</p>
+<pre><code class="yaml">version: 0.2
 
 phases:
   pre_build:
@@ -276,6 +283,9 @@ phases:
     commands:
       - echo Downloading Dockerfile
       - aws s3 cp s3://my-bucket/people-poc-child1/Dockerfile .
+      - echo Downloading Apache config
+      - mkdir conf
+      - aws s3 cp s3://my-bucket/people-poc-child1/httpd.conf conf/
       - echo Build started on `date`
       - echo Building the Docker image...          
       - docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG .
@@ -293,9 +303,9 @@ artifacts:
     - imagedefinitions.json
 </code></pre>
 
-<p>Finally, the service role created for this project will need the ability to interact with ECR and S3, I opted to do this with two inline policies.  These are somewhat over-permissive, noted!</p>
+<p><strong>Permissions:</strong>  Finally, the service role created (earlier) will need the ability to interact with ECR and S3, I opted to do this with two inline policies.  These are somewhat over-permissive, noted!</p>
 <p><strong>ECR:</strong></p>
-<pre><code>{
+<pre><code class="json">{
     &quot;Version&quot;: &quot;2012-10-17&quot;,
     &quot;Statement&quot;: [
         {
@@ -315,7 +325,7 @@ artifacts:
 </code></pre>
 
 <p><strong>S3:</strong></p>
-<pre><code>{
+<pre><code class="json">{
     &quot;Version&quot;: &quot;2012-10-17&quot;,
     &quot;Statement&quot;: [
         {
@@ -360,22 +370,22 @@ artifacts:
 }
 </code></pre>
 
-<p>At this point, test your build!  Once complete, your ECR image will be available for you to use in the next step</p>
+<p>At this point, test the build.  Once complete, the ECR image will be available for use in the next step</p>
 <h2 id="ecs">ECS</h2>
-<p>Create a new task definition and service, this assumes that you've already got an ECS cluster with resources available to host the containers.</p>
+<p>Create a new task definition and service.  Again, this assumes there is an ECS cluster with resources available to host the containers.</p>
 <p>Task definition:</p>
 <ul>
 <li>Add a new task definition of type <strong>EC2</strong></li>
 <li>Create task and execution roles as required</li>
 <li>Configure task memory and CPU as required</li>
-<li>When adding a container, the name <strong>must</strong> match the value of the CONTAINER_NAME variable in your CodeBuild project, you will need to provide the full URI to the image in ECR as well</li>
+<li>When adding a container to the definition, the name <strong>must</strong> match the value of the CONTAINER_NAME variable in your CodeBuild project, you will need to provide the full URI to the image in ECR as well</li>
 <li>Configure other values as required</li>
 </ul>
 <p>Service:</p>
 <ul>
 <li>Launch type is EC2, configure other service and placement options as required</li>
 <li>Configure load balancing as required (in this example, I'm using an ALB and target groups that aren't detailed here)</li>
-<li>Adjust Service Auto Acaling as required (I opted not to use auto scaling)</li>
+<li>Adjust Service Auto Scaling as required</li>
 </ul>
 <h2 id="codepipeline">CodePipeline</h2>
 <p>Now to tie it all together in CodePipeline</p>
@@ -394,7 +404,7 @@ artifacts:
 </tr>
 <tr>
 <td>Repository</td>
-<td>Your repo</td>
+<td>Select your repo (authorize access if required)</td>
 </tr>
 <tr>
 <td>Branch</td>
@@ -406,7 +416,7 @@ artifacts:
 </tr>
 <tr>
 <td>Select an existing build project</td>
-<td>select the project created earlier</td>
+<td>select the build project created earlier</td>
 </tr>
 <tr>
 <td>Deployment Provider</td>
@@ -428,9 +438,39 @@ artifacts:
 </table>
 <p>Notes:</p>
 <ul>
-<li>The imagedefinitions.json file is created as part of the build process (see the buildspec.yml file for more detail)</li>
+<li>The imagedefinitions.json file is created as part of the build process (see the buildspec.yml file and <a href="https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-cd-pipeline.html">Tutorial: Continuous Deployment with AWS CodePipeline</a> for more detail)</li>
 <li>Create service role as required</li>
 <li>CodePipeline will create or re-use an S3 bucket to store artifacts for this pipeline</li>
+</ul>
+<h2 id="costs">Costs</h2>
+<p>Pricing info may be stale!  This information below is accurate as of 2018/10/03, visit the pricing pages for updates</p>
+<h3 id="codebuild_1">CodeBuild</h3>
+<p>See <a href="https://aws.amazon.com/codebuild/pricing/">CodeBuild pricing</a></p>
+<ul>
+<li>Building this project takes roughly 1 minute on a build.general1.small at $0.005 per build minute</li>
+<li>The AWS CodeBuild free tier includes 100 build minutes of build.general1.small per month. The CodeBuild free tier does not expire automatically at the end of your 12-month AWS Free Tier term. It is available to new and existing AWS customers.</li>
+</ul>
+<h3 id="codepipeline_1">CodePipeline</h3>
+<p>See <a href="https://aws.amazon.com/codepipeline/pricing/">CodePipeline pricing</a></p>
+<ul>
+<li>With AWS CodePipeline, there are no upfront fees or commitments. You pay only for what you use. AWS CodePipeline costs $1 per active pipeline* per month. To encourage experimentation, pipelines are free for the first 30 days after creation.</li>
+<li>An active pipeline is a pipeline that has existed for more than 30 days and has at least one code change that runs through it during the month. There is no charge for pipelines that have no new code changes running through them during the month. An active pipeline is not prorated for partial months.</li>
+</ul>
+<h3 id="ecs-pricing">ECS Pricing</h3>
+<p>See <a href="https://aws.amazon.com/ecs/pricing/">ECS pricing</a></p>
+<p>There is no additional charge for EC2 launch type. You pay for AWS resources (e.g. EC2 instances or EBS volumes) you create to store and run your application.</p>
+<h3 id="ecr-pricing">ECR Pricing</h3>
+<p>See <a href="https://aws.amazon.com/ecr/pricing/">ECR pricing</a></p>
+<ul>
+<li>Storage is $0.10 per GB-month, the image for this project was about 100MB</li>
+<li>Data Transfer Out (in is $0) - Up to 1 GB / Month is $0.00 per GB, Next 9.999 TB / Month is $0.09 per GB</li>
+</ul>
+<h3 id="s3-pricing">S3 Pricing</h3>
+<p>See <a href="https://aws.amazon.com/s3/pricing/">S3 pricing</a></p>
+<p>Some data is written to S3 and will count towards your monthly S3 charges</p>
+<ul>
+<li>Dockerfile and httpd.conf - ~35KB of storage</li>
+<li>CodePipine will save some artifacts to S3, size will vary based on the sites being built (this example consumed ~2MB of S3 storage per build)</li>
 </ul>
               
             </div>
