@@ -6,6 +6,8 @@ So why did you create this site?  Was there a purpose?
 
 A potential solution is outlined below, it has the benefits of being completely serverless, it enables the contributors to take advantage of well known revision control tools and only configuration/setup once to get the ball rolling.
 
+**This is not a walkthrough, there are some assumptions that have been made with regards to existing resources in your account**
+
 **Assumptions:**
 * Routing to the sites is a solved problem, what I've done to make this work is configure an Application Load Balancer (ALB) with path based routing.  There are rules that forward requests to the appropriate Target Groups and these groups have the appropriate containers as members.
 * There is existing ECS infrastructure that can be used to host the containers created below
@@ -20,10 +22,22 @@ A potential solution is outlined below, it has the benefits of being completely 
 ![Diagram](people-poc.png)
 
 ## Repository layout
+Take a look at [https://github.com/mattsnell/people-poc-child1](https://github.com/mattsnell/people-poc-child1), this is the source for the data within the container.  
 
+There are two paths to focus on:
 
-## Docker Image
+| Path | Description |
+|------|-------------|
+|site/child1| This is the output html, it will be copied to `/var/www/html/child1` in the container|
+|users| This is where the contributor will configure their htpasswd file |
+
+* Notice that the path `child1` is maintained in the container (required for [path-based routing](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#path-conditions) in [ALB](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html))
+* The htpasswd file is outside of the web content (the norm)
+* The only path that has any htaccess control applied is `site/child1/protected`
+
+## Dockerfile
 There are a number of ways to tackle this particular problem.  In this case I designed my image from an older CentOS base:
+
 ```
 FROM centos:6.10
 
@@ -41,22 +55,40 @@ EXPOSE 80
 ENTRYPOINT ["/usr/sbin/httpd", "-e", "DEBUG", "-D", "FOREGROUND"]```
 ```
 
-NEED TO MOVE httpd.conf to the S3 bucket and update buildspec.yml - shouldn't be exposed to user
 
 ## ECR
-Create your ECR repository and make note of the name
+At this point, you'll want to create your ECR registry and note the name, perhaps something like `web/child1`.  That value will be needed in the CodeBuild section.
 
 ## CodeBuild
 
-Create Build Project
+Create Build Project; there are a number of questions to answer and they are grouped by action, some of my choices are below (omitting responses that aren't required to make this work).
 
-There are a number of variables that I used when defining the project to make it reusable.
+| Question | Response |
+|----------|----------|
+|Source: What to build / Source provider| github (then configure for your repository) |
+|Environment: How to build / Environment image | Use an image managed by AWS CodeBuild |
+|Environment: How to build / Operating system | Ubuntu |
+|Environment: How to build / Runtime | Docker |
+|Environment: How to build / Runtime version | aws/codebuild/docker:* |
+|Environment: How to build / Build specification | insert build commands (see example buildspec.yml) |
+|Service role | Create a service role in your account |
+|Advanced Settings | Configure environment variables (see below)|
 
-* $CONTAINER_NAME
-* $AWS_DEFAULT_REGION
-* $IMAGE_REPO_NAME
-* $IMAGE_TAG
-* $AWS_ACCOUNT_ID
+Notes:
+
+* Don't opt to "Rebuild every time a code change is pushed to this repository" (we'll take care of that with CodePipeline)
+* I opted to insert the buildspec.yml code in the build project so that it doesn't need to be maintained in the contributor's repository
+* The service role will need additional permissions, included below
+
+There are a number of variables that I configure when defining the project to make the buildspec.yml code reuseable:
+
+| Variable              | Description                                                    |
+| ----------------------|----------------------------------------------------------------|
+| $CONTAINER_NAME | This must match the name you select when you define your ECS service |
+| $AWS_DEFAULT_REGION | This is the region you deploy your resources in (us-east-2)      |
+| $IMAGE_REPO_NAME | ECR image repository name (web/child1)                              |
+| $IMAGE_TAG | The tage you define for your image                                        |
+| $AWS_ACCOUNT_ID | The account ID where you're deploying (used when setting ECR URI)    |
 
 **Example buildspec.yml**
 ```
@@ -70,7 +102,7 @@ phases:
   build:
     commands:
       - echo Downloading Dockerfile
-      - aws s3 cp s3://aws-mds-data/bu/dev/people-poc-child1/Dockerfile .
+      - aws s3 cp s3://my-bucket/people-poc-child1/Dockerfile .
       - echo Build started on `date`
       - echo Building the Docker image...          
       - docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG .
@@ -87,9 +119,114 @@ artifacts:
   files:
     - imagedefinitions.json
 ```
+Finally, the service role created for this project will need the ability to interact with ECR and S3, I opted to do this with two inline policies.  These are somewhat over-permissive, noted!
+
+**ECR:**
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "ecr:BatchCheckLayerAvailability",
+                "ecr:CompleteLayerUpload",
+                "ecr:GetAuthorizationToken",
+                "ecr:InitiateLayerUpload",
+                "ecr:PutImage",
+                "ecr:UploadLayerPart"
+            ],
+            "Resource": "*",
+            "Effect": "Allow"
+        }
+    ]
+}
+```
+
+**S3:**
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "cb-s3-read",
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucketByTags",
+                "s3:GetLifecycleConfiguration",
+                "s3:GetBucketTagging",
+                "s3:GetInventoryConfiguration",
+                "s3:GetObjectVersionTagging",
+                "s3:ListBucketVersions",
+                "s3:GetBucketLogging",
+                "s3:GetAccelerateConfiguration",
+                "s3:GetBucketPolicy",
+                "s3:GetObjectVersionTorrent",
+                "s3:GetObjectAcl",
+                "s3:GetEncryptionConfiguration",
+                "s3:GetBucketRequestPayment",
+                "s3:GetObjectVersionAcl",
+                "s3:GetObjectTagging",
+                "s3:GetMetricsConfiguration",
+                "s3:GetIpConfiguration",
+                "s3:ListBucketMultipartUploads",
+                "s3:GetBucketWebsite",
+                "s3:GetBucketVersioning",
+                "s3:GetBucketAcl",
+                "s3:GetBucketNotification",
+                "s3:GetReplicationConfiguration",
+                "s3:ListMultipartUploadParts",
+                "s3:GetObject",
+                "s3:GetObjectTorrent",
+                "s3:GetBucketCORS",
+                "s3:GetAnalyticsConfiguration",
+                "s3:GetObjectVersionForReplication",
+                "s3:GetBucketLocation",
+                "s3:GetObjectVersion"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
+
+At this point, test your build!  Once complete, your ECR image will be available for you to use in the next step
 
 ## ECS
-Create a new service
+Create a new task definition and service, this assumes that you've already got an ECS cluster with resources available to host the containers.
+
+Task definition:
+
+* Add a new task definition of type **EC2**
+* Create task and execution roles as required
+* Configure task memory and CPU as required
+* When adding a container, the name **must** match the value of the CONTAINER_NAME variable in your CodeBuild project, you will need to provide the full URI to the image in ECR as well
+* Configure other values as required
+
+Service:
+
+* Launch type is EC2, configure other service and placement options as required
+* Configure load balancing as required (in this example, I'm using an ALB and target groups that aren't detailed here)
+* Adjust Service Auto Acaling as required (I opted not to use auto scaling)
 
 ## CodePipeline
-Tie it all together!
+Now to tie it all together in CodePipeline
+
+Create a new pipeline
+
+| Question | Response |
+|----------|----------|
+|Source provider | github |
+|Repository | Your repo |
+|Branch | master (or your choice)|
+|Build provider | AWS CodeBuild |
+|Select an existing build project | select the project created earlier |
+|Deployment Provider | Amazon ECS |
+|Cluster Name | your cluster |
+|Service Name | provide the service created earlier |
+|Image filename | imagedefinitions.json |
+
+Notes:
+
+* The imagedefinitions.json file is created as part of the build process (see the buildspec.yml file for more detail)
+* Create service role as required
+* CodePipeline will create or re-use an S3 bucket to store artifacts for this pipeline

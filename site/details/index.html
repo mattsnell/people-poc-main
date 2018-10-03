@@ -69,7 +69,7 @@
         
             <li><a class="toctree-l3" href="#repository-layout">Repository layout</a></li>
         
-            <li><a class="toctree-l3" href="#docker-image">Docker Image</a></li>
+            <li><a class="toctree-l3" href="#dockerfile">Dockerfile</a></li>
         
             <li><a class="toctree-l3" href="#ecr">ECR</a></li>
         
@@ -126,6 +126,7 @@
 <p>So why did you create this site?  Was there a purpose?</p>
 <p><strong>Example problem:</strong>   We have a main site <a href="http://people-poc.aws.mattsnell.com">people-poc.aws.mattsnell.com</a> that is centrally managed.  We want to enable approved contributors to publish community content within our namespace (example: <a href="#">http://people-poc.aws.mattsnell.com/coffeefans</a>).  Contributors should be able to create their content and have it published automatically, and we don't want to create significant technical debt in the process!  One other requisite, we need apache to serve these sites, our community values the controls that are enabled by htaccess.</p>
 <p>A potential solution is outlined below, it has the benefits of being completely serverless, it enables the contributors to take advantage of well known revision control tools and only configuration/setup once to get the ball rolling.</p>
+<p><strong>This is not a walkthrough, there are some assumptions that have been made with regards to existing resources in your account</strong></p>
 <p><strong>Assumptions:</strong>
 <em> Routing to the sites is a solved problem, what I've done to make this work is configure an Application Load Balancer (ALB) with path based routing.  There are rules that forward requests to the appropriate Target Groups and these groups have the appropriate containers as members.
 </em> There is existing ECS infrastructure that can be used to host the containers created below
@@ -137,7 +138,32 @@
 1. An AWS Elastic Container Service (ECS) service is updated using the updated image triggering a replacment of the running containers</p>
 <p><img alt="Diagram" src="../people-poc.png" /></p>
 <h2 id="repository-layout">Repository layout</h2>
-<h2 id="docker-image">Docker Image</h2>
+<p>Take a look at <a href="https://github.com/mattsnell/people-poc-child1">https://github.com/mattsnell/people-poc-child1</a>, this is the source for the data within the container.  </p>
+<p>There are two paths to focus on:</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>site/child1</td>
+<td>This is the output html, it will be copied to <code>/var/www/html/child1</code> in the container</td>
+</tr>
+<tr>
+<td>users</td>
+<td>This is where the contributor will configure their htpasswd file</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Notice that the path <code>child1</code> is maintained in the container (required for <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#path-conditions">path-based routing</a> in <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html">ALB</a>)</li>
+<li>The htpasswd file is outside of the web content (the norm)</li>
+<li>The only path that has any htaccess control applied is <code>site/child1/protected</code></li>
+</ul>
+<h2 id="dockerfile">Dockerfile</h2>
 <p>There are a number of ways to tackle this particular problem.  In this case I designed my image from an older CentOS base:</p>
 <pre><code>FROM centos:6.10
 
@@ -155,19 +181,89 @@ EXPOSE 80
 ENTRYPOINT [&quot;/usr/sbin/httpd&quot;, &quot;-e&quot;, &quot;DEBUG&quot;, &quot;-D&quot;, &quot;FOREGROUND&quot;]```
 </code></pre>
 
-<p>NEED TO MOVE httpd.conf to the S3 bucket and update buildspec.yml - shouldn't be exposed to user</p>
 <h2 id="ecr">ECR</h2>
-<p>Create your ECR repository and make note of the name</p>
+<p>At this point, you'll want to create your ECR registry and note the name, perhaps something like <code>web/child1</code>.  That value will be needed in the CodeBuild section.</p>
 <h2 id="codebuild">CodeBuild</h2>
-<p>Create Build Project</p>
-<p>There are a number of variables that I used when defining the project to make it reusable.</p>
+<p>Create Build Project; there are a number of questions to answer and they are grouped by action, some of my choices are below (omitting responses that aren't required to make this work).</p>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Response</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Source: What to build / Source provider</td>
+<td>github (then configure for your repository)</td>
+</tr>
+<tr>
+<td>Environment: How to build / Environment image</td>
+<td>Use an image managed by AWS CodeBuild</td>
+</tr>
+<tr>
+<td>Environment: How to build / Operating system</td>
+<td>Ubuntu</td>
+</tr>
+<tr>
+<td>Environment: How to build / Runtime</td>
+<td>Docker</td>
+</tr>
+<tr>
+<td>Environment: How to build / Runtime version</td>
+<td>aws/codebuild/docker:*</td>
+</tr>
+<tr>
+<td>Environment: How to build / Build specification</td>
+<td>insert build commands (see example buildspec.yml)</td>
+</tr>
+<tr>
+<td>Service role</td>
+<td>Create a service role in your account</td>
+</tr>
+<tr>
+<td>Advanced Settings</td>
+<td>Configure environment variables (see below)</td>
+</tr>
+</tbody>
+</table>
+<p>Notes:</p>
 <ul>
-<li>$CONTAINER_NAME</li>
-<li>$AWS_DEFAULT_REGION</li>
-<li>$IMAGE_REPO_NAME</li>
-<li>$IMAGE_TAG</li>
-<li>$AWS_ACCOUNT_ID</li>
+<li>Don't opt to "Rebuild every time a code change is pushed to this repository" (we'll take care of that with CodePipeline)</li>
+<li>I opted to insert the buildspec.yml code in the build project so that it doesn't need to be maintained in the contributor's repository</li>
+<li>The service role will need additional permissions, included below</li>
 </ul>
+<p>There are a number of variables that I configure when defining the project to make the buildspec.yml code reuseable:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>$CONTAINER_NAME</td>
+<td>This must match the name you select when you define your ECS service</td>
+</tr>
+<tr>
+<td>$AWS_DEFAULT_REGION</td>
+<td>This is the region you deploy your resources in (us-east-2)</td>
+</tr>
+<tr>
+<td>$IMAGE_REPO_NAME</td>
+<td>ECR image repository name (web/child1)</td>
+</tr>
+<tr>
+<td>$IMAGE_TAG</td>
+<td>The tage you define for your image</td>
+</tr>
+<tr>
+<td>$AWS_ACCOUNT_ID</td>
+<td>The account ID where you're deploying (used when setting ECR URI)</td>
+</tr>
+</tbody>
+</table>
 <p><strong>Example buildspec.yml</strong></p>
 <pre><code>version: 0.2
 
@@ -179,7 +275,7 @@ phases:
   build:
     commands:
       - echo Downloading Dockerfile
-      - aws s3 cp s3://aws-mds-data/bu/dev/people-poc-child1/Dockerfile .
+      - aws s3 cp s3://my-bucket/people-poc-child1/Dockerfile .
       - echo Build started on `date`
       - echo Building the Docker image...          
       - docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG .
@@ -197,10 +293,145 @@ artifacts:
     - imagedefinitions.json
 </code></pre>
 
+<p>Finally, the service role created for this project will need the ability to interact with ECR and S3, I opted to do this with two inline policies.  These are somewhat over-permissive, noted!</p>
+<p><strong>ECR:</strong></p>
+<pre><code>{
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [
+        {
+            &quot;Action&quot;: [
+                &quot;ecr:BatchCheckLayerAvailability&quot;,
+                &quot;ecr:CompleteLayerUpload&quot;,
+                &quot;ecr:GetAuthorizationToken&quot;,
+                &quot;ecr:InitiateLayerUpload&quot;,
+                &quot;ecr:PutImage&quot;,
+                &quot;ecr:UploadLayerPart&quot;
+            ],
+            &quot;Resource&quot;: &quot;*&quot;,
+            &quot;Effect&quot;: &quot;Allow&quot;
+        }
+    ]
+}
+</code></pre>
+
+<p><strong>S3:</strong></p>
+<pre><code>{
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [
+        {
+            &quot;Sid&quot;: &quot;cb-s3-read&quot;,
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Action&quot;: [
+                &quot;s3:ListBucketByTags&quot;,
+                &quot;s3:GetLifecycleConfiguration&quot;,
+                &quot;s3:GetBucketTagging&quot;,
+                &quot;s3:GetInventoryConfiguration&quot;,
+                &quot;s3:GetObjectVersionTagging&quot;,
+                &quot;s3:ListBucketVersions&quot;,
+                &quot;s3:GetBucketLogging&quot;,
+                &quot;s3:GetAccelerateConfiguration&quot;,
+                &quot;s3:GetBucketPolicy&quot;,
+                &quot;s3:GetObjectVersionTorrent&quot;,
+                &quot;s3:GetObjectAcl&quot;,
+                &quot;s3:GetEncryptionConfiguration&quot;,
+                &quot;s3:GetBucketRequestPayment&quot;,
+                &quot;s3:GetObjectVersionAcl&quot;,
+                &quot;s3:GetObjectTagging&quot;,
+                &quot;s3:GetMetricsConfiguration&quot;,
+                &quot;s3:GetIpConfiguration&quot;,
+                &quot;s3:ListBucketMultipartUploads&quot;,
+                &quot;s3:GetBucketWebsite&quot;,
+                &quot;s3:GetBucketVersioning&quot;,
+                &quot;s3:GetBucketAcl&quot;,
+                &quot;s3:GetBucketNotification&quot;,
+                &quot;s3:GetReplicationConfiguration&quot;,
+                &quot;s3:ListMultipartUploadParts&quot;,
+                &quot;s3:GetObject&quot;,
+                &quot;s3:GetObjectTorrent&quot;,
+                &quot;s3:GetBucketCORS&quot;,
+                &quot;s3:GetAnalyticsConfiguration&quot;,
+                &quot;s3:GetObjectVersionForReplication&quot;,
+                &quot;s3:GetBucketLocation&quot;,
+                &quot;s3:GetObjectVersion&quot;
+            ],
+            &quot;Resource&quot;: &quot;*&quot;
+        }
+    ]
+}
+</code></pre>
+
+<p>At this point, test your build!  Once complete, your ECR image will be available for you to use in the next step</p>
 <h2 id="ecs">ECS</h2>
-<p>Create a new service</p>
+<p>Create a new task definition and service, this assumes that you've already got an ECS cluster with resources available to host the containers.</p>
+<p>Task definition:</p>
+<ul>
+<li>Add a new task definition of type <strong>EC2</strong></li>
+<li>Create task and execution roles as required</li>
+<li>Configure task memory and CPU as required</li>
+<li>When adding a container, the name <strong>must</strong> match the value of the CONTAINER_NAME variable in your CodeBuild project, you will need to provide the full URI to the image in ECR as well</li>
+<li>Configure other values as required</li>
+</ul>
+<p>Service:</p>
+<ul>
+<li>Launch type is EC2, configure other service and placement options as required</li>
+<li>Configure load balancing as required (in this example, I'm using an ALB and target groups that aren't detailed here)</li>
+<li>Adjust Service Auto Acaling as required (I opted not to use auto scaling)</li>
+</ul>
 <h2 id="codepipeline">CodePipeline</h2>
-<p>Tie it all together!</p>
+<p>Now to tie it all together in CodePipeline</p>
+<p>Create a new pipeline</p>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Response</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Source provider</td>
+<td>github</td>
+</tr>
+<tr>
+<td>Repository</td>
+<td>Your repo</td>
+</tr>
+<tr>
+<td>Branch</td>
+<td>master (or your choice)</td>
+</tr>
+<tr>
+<td>Build provider</td>
+<td>AWS CodeBuild</td>
+</tr>
+<tr>
+<td>Select an existing build project</td>
+<td>select the project created earlier</td>
+</tr>
+<tr>
+<td>Deployment Provider</td>
+<td>Amazon ECS</td>
+</tr>
+<tr>
+<td>Cluster Name</td>
+<td>your cluster</td>
+</tr>
+<tr>
+<td>Service Name</td>
+<td>provide the service created earlier</td>
+</tr>
+<tr>
+<td>Image filename</td>
+<td>imagedefinitions.json</td>
+</tr>
+</tbody>
+</table>
+<p>Notes:</p>
+<ul>
+<li>The imagedefinitions.json file is created as part of the build process (see the buildspec.yml file for more detail)</li>
+<li>Create service role as required</li>
+<li>CodePipeline will create or re-use an S3 bucket to store artifacts for this pipeline</li>
+</ul>
               
             </div>
           </div>
