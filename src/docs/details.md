@@ -13,14 +13,14 @@ A potential solution is outlined below, it has the benefits of being completely 
 **Assumptions:**
 
 * Routing to the sites is a solved problem, what I've done in this example is configure an [Application Load Balancer](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html) (ALB) with path based routing.  There are rules that forward requests to the appropriate Target Groups and these groups have the appropriate containers as members.
-* There is an existing [Amazon lastic Container Service](https://aws.amazon.com/ecs/) (ECS) cluster that can be used to host the containers created in the example
-* The main site and the associated paths owned by it are out of scope (that content is managed outside of this process)
+* There is an existing [Amazon Elastic Container Service](https://aws.amazon.com/ecs/) (ECS) cluster that can be used to host the containers created in the example
+* The main site and the associated paths (directories) owned by it, are out of scope (that content is managed outside of this process)
 * There aren't a lot of these sites so the ramp up and maintenance is measurable and minimal
 
 **A 10,000 foot view of the pipeline:**
 
 1. A contributor updates their site locally and commits those changes to [github](https://github.com/)
-1. An [AWS CodePipeline](https://aws.amazon.com/codepipeline/) job is triggered via [webhook](https://developer.github.com/webhooks/); it uses [AWS CodeBuild](https://aws.amazon.com/codebuild/) and creates a docker image and pushes that image to [AWS Elastic Container Registry](https://aws.amazon.com/ecr/) (ECR)
+1. An [AWS CodePipeline](https://aws.amazon.com/codepipeline/) job is triggered via [webhook](https://developer.github.com/webhooks/); it uses [AWS CodeBuild](https://aws.amazon.com/codebuild/) and creates a docker image and then pushes that image to [AWS Elastic Container Registry](https://aws.amazon.com/ecr/) (ECR)
 1. CodePipeline then updates an ECS [service](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs_services.html) which triggers a replacement of the running containers
 
 ![Diagram](people-poc.png)
@@ -33,12 +33,12 @@ There are two paths to focus on:
 
 | Path | Description |
 |------|-------------|
-|site/child1| This is the output html, it will be copied to `/var/www/html/child1` in the container|
+|site/child1| This is the output html, it will be copied to `/var/www/html/child1/` in the container|
 |users| This is where the contributor will configure their htpasswd file |
 
 * Notice that the path `child1` is carried forward to the container (required for [path-based routing](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#path-conditions) in [ALB](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html))
 * The htpasswd file is outside of the web content (the norm)
-* The only path that has any htaccess control applied is `site/child1/protected`.  You can review the .htaccess there.
+* The only path that has htaccess control applied is `site/child1/protected/`.  You can review the .htaccess file there.
 
 ## Dockerfile
 

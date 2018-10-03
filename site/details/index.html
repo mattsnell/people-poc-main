@@ -133,14 +133,14 @@
 <p><strong>Assumptions:</strong></p>
 <ul>
 <li>Routing to the sites is a solved problem, what I've done in this example is configure an <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html">Application Load Balancer</a> (ALB) with path based routing.  There are rules that forward requests to the appropriate Target Groups and these groups have the appropriate containers as members.</li>
-<li>There is an existing <a href="https://aws.amazon.com/ecs/">Amazon lastic Container Service</a> (ECS) cluster that can be used to host the containers created in the example</li>
-<li>The main site and the associated paths owned by it are out of scope (that content is managed outside of this process)</li>
+<li>There is an existing <a href="https://aws.amazon.com/ecs/">Amazon Elastic Container Service</a> (ECS) cluster that can be used to host the containers created in the example</li>
+<li>The main site and the associated paths (directories) owned by it, are out of scope (that content is managed outside of this process)</li>
 <li>There aren't a lot of these sites so the ramp up and maintenance is measurable and minimal</li>
 </ul>
 <p><strong>A 10,000 foot view of the pipeline:</strong></p>
 <ol>
 <li>A contributor updates their site locally and commits those changes to <a href="https://github.com/">github</a></li>
-<li>An <a href="https://aws.amazon.com/codepipeline/">AWS CodePipeline</a> job is triggered via <a href="https://developer.github.com/webhooks/">webhook</a>; it uses <a href="https://aws.amazon.com/codebuild/">AWS CodeBuild</a> and creates a docker image and pushes that image to <a href="https://aws.amazon.com/ecr/">AWS Elastic Container Registry</a> (ECR)</li>
+<li>An <a href="https://aws.amazon.com/codepipeline/">AWS CodePipeline</a> job is triggered via <a href="https://developer.github.com/webhooks/">webhook</a>; it uses <a href="https://aws.amazon.com/codebuild/">AWS CodeBuild</a> and creates a docker image and then pushes that image to <a href="https://aws.amazon.com/ecr/">AWS Elastic Container Registry</a> (ECR)</li>
 <li>CodePipeline then updates an ECS <a href="https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs_services.html">service</a> which triggers a replacement of the running containers</li>
 </ol>
 <p><img alt="Diagram" src="../people-poc.png" /></p>
@@ -157,7 +157,7 @@
 <tbody>
 <tr>
 <td>site/child1</td>
-<td>This is the output html, it will be copied to <code>/var/www/html/child1</code> in the container</td>
+<td>This is the output html, it will be copied to <code>/var/www/html/child1/</code> in the container</td>
 </tr>
 <tr>
 <td>users</td>
@@ -168,7 +168,7 @@
 <ul>
 <li>Notice that the path <code>child1</code> is carried forward to the container (required for <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#path-conditions">path-based routing</a> in <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html">ALB</a>)</li>
 <li>The htpasswd file is outside of the web content (the norm)</li>
-<li>The only path that has any htaccess control applied is <code>site/child1/protected</code>.  You can review the .htaccess there.</li>
+<li>The only path that has htaccess control applied is <code>site/child1/protected/</code>.  You can review the .htaccess file there.</li>
 </ul>
 <h2 id="dockerfile">Dockerfile</h2>
 <p>There are a number of ways to tackle this particular problem.  In this example, I've designed my image from an older CentOS base:</p>
