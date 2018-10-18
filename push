@@ -1,0 +1,8 @@
+#/bin/sh
+
+rm -rf site/
+mkdocs build
+cd site
+aws s3 sync . s3://people.aws.mattsnell.com/
+aws s3 sync . s3://aws-mds-data/master-builder/web/html/
+cd -

@@ -1,23 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-     <loc>None</loc>
-     <lastmod>2018-10-03</lastmod>
+     <loc>https://d3a2qskow0cqm4.cloudfront.net/index.html</loc>
+     <lastmod>2018-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
-     <loc>None</loc>
-     <lastmod>2018-10-03</lastmod>
+     <loc>https://d3a2qskow0cqm4.cloudfront.net/about.html</loc>
+     <lastmod>2018-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
     <url>
-     <loc>None</loc>
-     <lastmod>2018-10-03</lastmod>
-     <changefreq>daily</changefreq>
-    </url>
-    <url>
-     <loc>None</loc>
-     <lastmod>2018-10-03</lastmod>
+     <loc>https://d3a2qskow0cqm4.cloudfront.net/test.html</loc>
+     <lastmod>2018-10-18</lastmod>
      <changefreq>daily</changefreq>
     </url>
 </urlset>

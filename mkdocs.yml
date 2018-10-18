@@ -1,0 +1,9 @@
+site_name: University People
+site_url: https://d3a2qskow0cqm4.cloudfront.net
+site_description: Diverse Community Contributions
+nav:
+  - index.md
+  - about.md
+  - test.md
+use_directory_urls: false
+theme: readthedocs

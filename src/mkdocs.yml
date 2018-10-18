@@ -1,7 +1,0 @@
-site_name: people-poc
-nav:
-  - index.md
-  - about.md
-  - details.md
-  - child1/index.md
-theme: readthedocs
